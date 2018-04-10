@@ -6,11 +6,16 @@ rdd_sample = None
 conf = SparkConf()
 sc = SparkContext(conf = conf)
 
+# Creates an RDD from #5 place_name and #11 tweet_text
 def createRDD(filename, val):
-    rdd = sc.textFile(filename).map(lambda line: line.split('\t'))
+    rdd = sc.textFile(filename).map(lambda line: line.split('\t')).map(lambda x: x[4], x[10].lower().split(" ")))
     rdd_sample = rdd.sample(False, val, 5)
     return rdd_sample
 
+# We need three parameters:
+# -training <full path of the training file>
+# -input <full path of the input file>
+# -output <full path of the output file>
 def run(rdd, tweet, outputFile):
 
 # x = place, y = probability
