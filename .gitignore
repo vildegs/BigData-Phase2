@@ -1,0 +1,8 @@
+# gitignore file
+
+geotweets.tsv
+.DS_Store
+data/
+derby.log
+metastore_db/
+venv/
