@@ -3,7 +3,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description = "Classification using Naive Bayes.")
 
-parser.add_argument('-training', '-t', dest = 'training')
+parser.add_argument('-training', '-t', dest = 'training', default = './data/geotweets.tsv')
 parser.add_argument('-input', '-i', dest = 'inputTweet')
 parser.add_argument('-output', '-o', dest = 'outputFile', default = './outputFile.tsv')
 
@@ -23,10 +23,10 @@ def createRDD(val):
     rdd_sample = rdd.sample(False, val, 5)
     return rdd_sample
 
-def transformInputTweet(inputTweet):
-    tweet = inputTweet.lower().split(" ")
-    tweetTrans = sc.textFile(args.inputTweet, use_unicode = True)
-    return "hello world"
+def transformInputTweet(tweetText):
+    tweet = tweetText.lower().split(" ")
+    #tweetTrans = sc.textFile(args.inputTweet, use_unicode = True)
+    return ["hello", "world"]
 
 # We need three parameters:
 # -training <full path of the training file>
@@ -44,16 +44,18 @@ def naiveBayes(rdd, place, tweet):
 
 # x = place, y = probability
 # Can be more than one outcome
-def writeFile(rdd, filename):
+def writeFile(rdd):
     # If there's one or more places found
     if rdd.count() > 0:
         rdd.map(lambda (x,y): x + "\t" + str(y)).coalesce(1).saveAsTextFile(args.outputFile)
     # If there's no place with prob greater than zero
     else:
-        rdd.parallellize([]).coalesce(1).saveAsTextFile(filename)
+        rdd.parallellize([]).coalesce(1).saveAsTextFile(args.outputFile)
 
 def main():
-    rdd = createRDD(0.1)
+    training_rdd = createRDD(0.1)
+    tweet = transformInputTweet(args.inputTweet)
+
 
 
 main()
