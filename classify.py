@@ -23,6 +23,12 @@ def createRDD(val):
     rdd_sample = rdd.sample(False, val, 5)
     return rdd_sample
 
+def countRDD(rdd):
+    rddMapped = rdd.flatMap(lambda x: ((x[0], word) for word in x[1])) \
+                    .map(lambda x: ((x[0], x[1], 1))) \
+                    .reduceByKey(lambda x,y, x+y) \
+                    .sortBy(lambda x: x[1], False)
+
 def transformInputTweet(tweetText):
     tweet = tweetText.lower().split(" ")
     #tweetTrans = sc.textFile(args.inputTweet, use_unicode = True)
@@ -40,6 +46,8 @@ def naiveBayes(rdd, place, tweet):
     TcRDD = rdd.filter(lambda x: (x[4] == place))
     Tc = TcRDD.count()
     #Tcw = TcRDD.filter(lambda x: x[10] if (x[10].find(word) for word in tweet))
+    for word in tweet:
+
 
 
 # x = place, y = probability
