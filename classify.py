@@ -42,10 +42,13 @@ def countRDD(rdd):
     return rddWordCount
 
 
-def transformInputTweet(tweetText):
-    #tweet = tweetText.lower().split(" ")
-    #tweetTrans = sc.textFile(args.inputTweet, use_unicode = True)
-    return ["hello", "world"]
+def transformInputTweet():
+    # tweet = tweetText.lower().split(" ")
+    # tweetTrans = sc.textFile(args.inputTweet, use_unicode = True)
+    tweet = ["hello", "hi"]
+    tweetRdd = sc.parallelize(tweet)
+    return tweetRdd
+
 
 
 def wordCount(rdd, inputWord):
@@ -65,16 +68,23 @@ def naiveBayes(rdd, inputTweet, rddCount):
     return prob
 
 def calculateProbabilities(rdd, inputTweet, rddCount):
-    places = rdd.map(lambda x: x[0]).distinct().collect()
+    print rdd.take(5)
+    print rdd.map(lambda x: (x[0][1], (x[0][0], x[1]))).take(5)
+    print inputTweet.take(5)
+    newRdd = rdd.map(lambda x: (x[0][1], (x[0][0], x[1]))).leftOuterJoin(inputTweet)
+    print newRdd.collect()
+    testRdd = newRdd.map(lambda x: ((x[1][0], x[0]), x[1][1]))
+    #print testRdd.collect()
+    places = testRdd.map(lambda x: x[0]).distinct().collect()
     probabilities = []
-    rddWordCount = countRDD(rdd)
+    '''rddWordCount = countRDD(rdd)
     for place in places:
         rddPlace = rddWordCount.filter(lambda x: x[0][0] == place)
         prob = naiveBayes(rddPlace, inputTweet, rddCount)
         probabilities.append(prob)
         print(place, ",", prob)
     maxProb = sc.parallellize(probabilities).max(key =lambda x: x[1])
-    return maxProb
+    return maxProb'''
 
 # x = place, y = probability
 # Can be more than one outcome
@@ -88,8 +98,10 @@ def writeFile(rdd):
         results.coalesce(1).saveAsTextFile(args.outputFile)
 
 def main():
-    training_rdd, rddCount = createRDD(0.1)
-    inputTweet = transformInputTweet(args.inputTweet)
+    training_rdd = sc.parallelize([(("NY", "hello"), 100), (("NY", "hi"), 50)])
+    rddCount = 2
+    #training_rdd, rddCount = createRDD(0.1)
+    inputTweet = transformInputTweet()
     #rddWordCount = countRDD(training_rdd)
     calculateProbabilities(training_rdd, inputTweet, rddCount)
 
