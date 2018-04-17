@@ -50,11 +50,11 @@ def countWordsPerPlace(countWRdd, place, inputWord): #Tcw
     else:
         return float(wordsPerPlace.collect()[0])
 
-def calculatePlaceWordProbability(countWRdd, place, word):
+'''def calculatePlaceWordProbability(countWRdd, place, word):
     print("Calculating place-word probability for word", word)
     Tcw = countWordsPerPlace(countWRdd, place, word)
     print("Tcw: ", Tcw)
-    return Tcw
+    return Tcw'''
 
 
 def calculatePlaceProbability(countWRdd, place, inputTweetRdd):
@@ -66,7 +66,7 @@ def calculatePlaceProbability(countWRdd, place, inputTweetRdd):
     prob1 = Tc / rddCount
     tweet = inputTweetRdd.collect()
     placeWRdd = countWRdd.filter(lambda x: x[0][0]==place)
-    prob2 = map(lambda word: calculatePlaceWordProbability(placeWRdd, place, word)/Tc, tweet)
+    prob2 = map(lambda word: countWordsPerPlace(placeWRdd, place, word)/Tc, tweet)
     prob = sc.parallelize(prob2).reduce(lambda x,y: x*y)
     #prob2 = []
     #wordCount = inputTweetRdd.map(lambda word: calculatePlaceWordProbability(placeWRdd, place, word)/Tc)
@@ -100,7 +100,8 @@ def writeFile(rdd):
 def main():
     inputTweet = transformInputTweet()
     countWRdd = countWordRDD()
-    maxProb = calculateProbForAllPlaces(countWRdd, inputTweet).max()
+    probabilities = calculateProbForAllPlaces(countWRdd, inputTweet)
+    maxProb = probabilities.max()
     print(maxProb)
 
 main()
