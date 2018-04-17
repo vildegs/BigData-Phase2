@@ -5,7 +5,6 @@ conf = SparkConf()
 sc = SparkContext(conf = conf)
 sc.setLogLevel("OFF")
 
-# Creates an RDD from values #5 place_name and #11 tweet_text
 parser = argparse.ArgumentParser(description = "Classification using Naive Bayes.")
 
 parser.add_argument('-training', '-t', dest = 'training', default = './data/geotweets.tsv')
@@ -14,18 +13,18 @@ parser.add_argument('-output', '-o', dest = 'outputFile', default = './outputFil
 
 args = parser.parse_args()
 originalRdd = sc.textFile(args.training, use_unicode = True)\
-        .map(lambda line: line.split('\t')).map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 0.001, 5)
+        .map(lambda line: line.split('\t')).map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 0.1, 5)
+
 rddCount = originalRdd.count()
 places = originalRdd.map(lambda x: x[0]).distinct()
 placeCount = originalRdd.map(lambda x: (x[0], 1)).reduceByKey(lambda x,y: x+y)
-#print(placeCount.take(5))
 
 
 def transformInputTweet():
     print("Transforming input tweet")
     # tweet = tweetText.lower().split(" ")
     # tweetTrans = sc.textFile(args.inputTweet, use_unicode = True)
-    tweet = ["hello"]
+    tweet = ["I"]
     tweetRdd = sc.parallelize(tweet)
     return tweetRdd
 
@@ -37,19 +36,15 @@ def countWordRDD():
                     .map(lambda x: ((x[0], x[1]), 1)) \
                     .reduceByKey(lambda x,y: x+y) \
                     .sortBy(lambda x: x[1], ascending = False)
-
-    print ("countWRdd", countWRdd.take(5))
     return countWRdd
 
 
 def countTweetsPerPlace(place): #Tc
-    #tweetCount = originalRdd.filter(lambda x: x[0] == place).count()
-    tweetCount = placeCount.lookup(place)
-    print ("tweetCount", tweetCount)
-    return tweetCount
+    tweetCount = placeCount.filter(lambda x: x[0] == place).map(lambda x: x[1])
+    return tweetCount.collect()[0]
 
 def countWordsPerPlace(countWRdd, place, inputWord): #Tcw
-    wordsPerPlace = countWRdd.filter(lambda x: x[0][0] == place and x[0][1] == inputWord).map(lambda x: x[1])
+    wordsPerPlace = countWRdd.filter(lambda x: x[0][1]==inputWord).map(lambda x: x[1])
     if wordsPerPlace.isEmpty():
         return 0
     else:
@@ -57,24 +52,27 @@ def countWordsPerPlace(countWRdd, place, inputWord): #Tcw
 
 def calculatePlaceWordProbability(countWRdd, place, word):
     print("Calculating place-word probability for word", word)
-    Tc = countTweetsPerPlace(place)
-    print("Tc: ", Tc)
     Tcw = countWordsPerPlace(countWRdd, place, word)
     print("Tcw: ", Tcw)
-    if Tc == 0 or Tcw == 0:
-        return 0
-    placeWordProb = Tcw / Tc
-    return placeWordProb
+    return Tcw
 
 
 def calculatePlaceProbability(countWRdd, place, inputTweetRdd):
     print("Calculating place probability for place", place)
-    prob1 = countTweetsPerPlace(place) / rddCount
+    Tc = countTweetsPerPlace(place)
+    print("Tc: ", Tc)
+    if Tc == 0:
+        return 0.0
+    prob1 = Tc / rddCount
     tweet = inputTweetRdd.collect()
-    prob2 = []
-    for word in tweet:
-        prob2.append(calculatePlaceWordProbability(countWRdd, place, word))
+    placeWRdd = countWRdd.filter(lambda x: x[0][0]==place)
+    prob2 = map(lambda word: calculatePlaceWordProbability(placeWRdd, place, word)/Tc, tweet)
     prob = sc.parallelize(prob2).reduce(lambda x,y: x*y)
+    #prob2 = []
+    #wordCount = inputTweetRdd.map(lambda word: calculatePlaceWordProbability(placeWRdd, place, word)/Tc)
+    #for word in tweet:
+    #    prob2.append(calculatePlaceWordProbability(countWRdd, place, word))
+    #prob = wordCount.reduce(lambda x, y: x*y)
     print(place,": ", prob*prob1)
     return prob1*prob
 
@@ -82,11 +80,11 @@ def calculatePlaceProbability(countWRdd, place, inputTweetRdd):
 
 def calculateProbForAllPlaces(countWRdd, inputTweetRdd):
     print("Calculating probabilities for all places")
-    probabilities = []
-    for place in places.collect():
-        probabilities.append(calculatePlaceProbability(countWRdd, place, inputTweetRdd))
-    #places.map(lambda place: calculatePlaceWordProbability(countWRdd, place, inputTweetRdd))
-    return probabilities
+    #probabilities = []
+    #for place in places.collect():
+    #    probabilities.append(calculatePlaceProbability(countWRdd, place, inputTweetRdd))
+    placeProb = places.map(lambda place: calculatePlaceProbability(countWRdd, place, inputTweetRdd))
+    return placeProb
 
 # x = place, y = probability
 # Can be more than one outcome
