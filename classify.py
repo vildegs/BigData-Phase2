@@ -41,7 +41,8 @@ def wordCount(rdd, inputWord):
     return rddTweetWord.count()
 
 
-def naiveBayes(rdd, inputTweet, rddCount):
+
+'''def naiveBayes(rdd, inputTweet, rddCount):
     T = rddCount
     Tc = rdd.count()
     #Tc = TcRDD.count()
@@ -61,7 +62,8 @@ def calculateProbabilities(rdd, inputTweet, rddCount):
     testRdd = newRdd.map(lambda x: ((x[1][0], x[0]), x[1][1]))
     #print testRdd.collect()
     places = testRdd.map(lambda x: x[0]).distinct().collect()
-    probabilities = []
+    probabilities = []'''
+
     '''rddWordCount = countRDD(rdd)
     for place in places:
         rddPlace = rddWordCount.filter(lambda x: x[0][0] == place)
