@@ -16,7 +16,7 @@ originalRdd = sc.textFile(args.training, use_unicode = True)\
         .map(lambda line: line.split('\t')).map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 0.1, 5)
 
 rddCount = originalRdd.count()
-places = originalRdd.map(lambda x: x[0]).distinct()
+places = originalRdd.map(lambda x: x[0]).distinct().collect()
 placeCount = originalRdd.map(lambda x: (x[0], 1)).reduceByKey(lambda x,y: x+y)
 
 
@@ -43,12 +43,13 @@ def countTweetsPerPlace(place): #Tc
     tweetCount = placeCount.filter(lambda x: x[0] == place).map(lambda x: x[1])
     return tweetCount.collect()[0]
 
-def countWordsPerPlace(countWRdd, place, inputWord): #Tcw
-    wordsPerPlace = countWRdd.filter(lambda x: x[0][1]==inputWord).map(lambda x: x[1])
-    if wordsPerPlace.isEmpty():
-        return 0
+def countWordsPerPlace(countWRdd, inputWord): #Tcw
+    wordsPerPlace = countWRdd.filter(lambda x: x[0][1]==inputWord).map(lambda x: x[1]).collect()
+    print("Tcw: ", wordsPerPlace)
+    if len(wordsPerPlace) == 0:
+        return 0.0
     else:
-        return float(wordsPerPlace.collect()[0])
+        return float(wordsPerPlace[0])
 
 '''def calculatePlaceWordProbability(countWRdd, place, word):
     print("Calculating place-word probability for word", word)
@@ -57,33 +58,33 @@ def countWordsPerPlace(countWRdd, place, inputWord): #Tcw
     return Tcw'''
 
 
-def calculatePlaceProbability(countWRdd, place, inputTweetRdd):
+def calculatePlaceProbability(countWRdd, place, tweet):
     print("Calculating place probability for place", place)
     Tc = countTweetsPerPlace(place)
     print("Tc: ", Tc)
     if Tc == 0:
         return 0.0
-    prob1 = Tc / rddCount
-    tweet = inputTweetRdd.collect()
-    placeWRdd = countWRdd.filter(lambda x: x[0][0]==place)
-    prob2 = map(lambda word: countWordsPerPlace(placeWRdd, place, word)/Tc, tweet)
-    prob = sc.parallelize(prob2).reduce(lambda x,y: x*y)
+    prob = Tc / rddCount
+    placeWRdd = countWRdd.filter(lambda x: x[0][0] == place)
+    for word in tweet:
+        wordRdd = placeWRdd.filter(lambda x: x[0][1] == word)
+        prob *= countWordsPerPlace(wordRdd, word)
+    #prob2 = map(lambda word: countWordsPerPlace(placeWRdd, word)/Tc, tweet)
+    #prob = sc.parallelize(prob2).reduce(lambda x,y: x*y)
     #prob2 = []
     #wordCount = inputTweetRdd.map(lambda word: calculatePlaceWordProbability(placeWRdd, place, word)/Tc)
     #for word in tweet:
     #    prob2.append(calculatePlaceWordProbability(countWRdd, place, word))
     #prob = wordCount.reduce(lambda x, y: x*y)
-    print(place,": ", prob*prob1)
-    return prob1*prob
-
-
+    return prob
 
 def calculateProbForAllPlaces(countWRdd, inputTweetRdd):
     print("Calculating probabilities for all places")
-    #probabilities = []
-    #for place in places.collect():
-    #    probabilities.append(calculatePlaceProbability(countWRdd, place, inputTweetRdd))
-    placeProb = places.map(lambda place: calculatePlaceProbability(countWRdd, place, inputTweetRdd))
+    probabilities = []
+    tweet = inputTweetRdd.collect()
+    for place in places:
+        probabilities.append(calculatePlaceProbability(countWRdd, place, tweet))
+    #placeProb = places.map(lambda place: calculatePlaceProbability(countWRdd, place, inputTweetRdd))
     return placeProb
 
 # x = place, y = probability
@@ -101,8 +102,9 @@ def main():
     inputTweet = transformInputTweet()
     countWRdd = countWordRDD()
     probabilities = calculateProbForAllPlaces(countWRdd, inputTweet)
-    maxProb = probabilities.max()
-    print(maxProb)
+    probabilities.take(5)
+    #maxProb = probabilities.max()
+    #print(maxProb)
 
 main()
 
