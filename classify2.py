@@ -96,5 +96,6 @@ def main():
     Tc(place)
     prob(inputTweetRdd, place)
 
-
+    #@TODO: Need to handle None-case where tweetwords does not exist.
+    #  Need to change prob() to not use place as parameter, but find maximum p(c) instead.
 main()
