@@ -5,43 +5,23 @@ conf = SparkConf()
 sc = SparkContext(conf = conf)
 sc.setLogLevel("OFF")
 
+
 parser = argparse.ArgumentParser(description = "Classification using Naive Bayes.")
 
-parser.add_argument('-training', '-t', dest = 'training', default = './data/geotweets.tsv')
+parser.add_argument('-training', '-t', dest = 'inputData', default = './data/geotweets.tsv')
 parser.add_argument('-input', '-i', dest = 'inputTweet')
 parser.add_argument('-output', '-o', dest = 'outputFile', default = './outputFile.tsv')
 
 args = parser.parse_args()
-originalRdd = sc.textFile(args.training, use_unicode = True).map(lambda line: line.split('\t')).map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 1, 5)
-tweetCount = originalRdd.count()
 
-'''orgData = [("New York, NY", "empire state building"),
-           ("New York, NY", "big empire state"),
-           ("New York, NY", "new york state"),
-           ("London, UK", "state"),
-           ("London, UK", "big state building"),
-           ("London, UK", "big ben state"),]
 
-rdd = sc.parallelize(orgData)
-originalRdd = rdd.map(lambda x: (x[0], x[1].lower().split(" ")))
-tweetCount = originalRdd.count()'''
-
-inputTweet = ["great", "job"]
-inputCount = len(inputTweet)
-
-def tweetsPerPlace(place): #Tc - sett inn .count()
-    tweetCount = placeCount.filter(lambda x: x[0] == place).map(lambda x: x[1])
-    return tweetCount.collect()[0]
+#----------------FUNCTIONS---------------
 
 def createRdd(inputData):
     placeCountRdd = countTweetPlace(inputData)
     placeWordsRdd = countTweetWords(inputData)
-    #placeWordsRdd = mergeTweets(inputData)
     placeRdd = placeCountRdd.join(placeWordsRdd)
-    #print(placeRdd.take(5))
-    #places = placeRdd.map(lambda x: (x[0], (x[1][0], countWords(x[1][1]))))
     placeRddFiltered = placeRdd.filter(lambda x: reduce(lambda i,j: i*j, x[1][1])!=0)
-    # lambda x: sum(x[1][1])!=0
     return placeRddFiltered
 
 
@@ -57,7 +37,7 @@ def countTweetPlace(inputData):
     placeRdd = inputData.countByKey().items()
     return sc.parallelize(placeRdd)
 
-# (place, wordListCount)
+# (place, wordListCount) - (place, [Tcw1, Tcw2,...])
 def countTweetWords(inputData):
     rdd = inputData.aggregateByKey(([0]*inputCount), lambda x,y: countWords(x,y), lambda x,y: ([x[i] + y[i] for i,j in enumerate(x)]))
     return rdd
@@ -81,7 +61,6 @@ def findProbabilities(inputData, tweet):
     print("Number of places: ", len(placesList))
     for place in placesList:
         prob = calculatePropability(placesData, tweet, place)
-        #print("Place: ", place, "Prob: ", prob)
         probabilities.append((place, prob))
     return probabilities
 
@@ -94,8 +73,8 @@ def findMaxProbability(probabilities):
     print(maxProbabilities.take(5))
     return maxProbabilities
 
-def writeToFile(maxProbabilities):
-    outputFile = open(args.output, 'w')
+def writeToFile(maxProbabilities, outputFilename):
+    outputFile = open(outputFilename, 'w')
     if maxProbabilities != "":
         if maxProbabilities.count()>1:
             toWrite = maxProbabilities
@@ -106,12 +85,24 @@ def writeToFile(maxProbabilities):
         outputFile.write("")
     outputFile.close()
 
+def getRdd(inputFile):
+    originalRdd = sc.textFile(inputFile, use_unicode = True)\
+    .map(lambda line: line.split('\t'))\
+    .map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 0.1, 5)
+    tweetCount = originalRdd.count()
+    return originalRdd, tweetCount
+
+def getTweetRdd(tweetFile):
+    inputTweet = sc.textFile(tweetFile, use_unicode = True)\
+    .map(lambda x: x.lower().split(" ")).collect()
+    print("Tweet: ", inputTweet)
+    inputCount = len(inputTweet)
+    return inputTweet, inputCount
 
 
-def main():
-    #createRdd(originalRdd, "")
-    #countTweetWords(originalRdd)
-    #calculatePropability(originalRdd, inputTweet, "London, UK")
-    findMaxProbability(findProbabilities(originalRdd, inputTweet))
 
-main()
+tweet, inputCount = getTweetRdd(args.inputTweet)
+originalRdd, tweetCount = getRdd(args.inputData)
+
+#maxProbabilities = findMaxProbability(findProbabilities(args.inputData, args.inputTweet))
+#writeToFile(maxProbabilities, args.outputFile)
