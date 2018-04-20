@@ -18,20 +18,26 @@ parser.add_argument('-output', '-o', dest = 'outputFile', default = './data/outp
 args = parser.parse_args()
 
 #-------------CREATING INITIAL RDDs-----------
-def getRdd(inputFile):
-    originalRdd = sc.textFile(inputFile, use_unicode = True)\
+
+# Transforms training set from textfile to rdd
+# Returns training set as rdd along with number of elements in the data set
+def getTrainingRdd(inputTestingFile):
+    trainingRdd = sc.textFile(inputTestingFile, use_unicode = True)\
     .map(lambda line: line.split('\t'))\
     .map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 0.1, 5)
-    tweetCount = originalRdd.count()
-    return originalRdd, tweetCount
+    trainingRddCount = trainingRdd.count()
+    return trainingRdd, trainingRddCount
 
-def getTweetRdd(tweetFile):
-    inputTweet = sc.textFile(tweetFile, use_unicode = True)\
+# Transforms input tweet from textfile to list.
+# Returns testing tweet as a list along with number of words in the tweet.
+def getTestingTweet(testingTweetFile):
+    testingTweet = sc.textFile(testingTweetFile, use_unicode = True)\
     .map(lambda x: x.lower().split(" ")).collect()
-    print("Tweet text: ", inputTweet[0])
-    inputCount = len(inputTweet)
-    return inputTweet[0], inputCount
+    print("Tweet text: ", testingTweet[0])
+    testingTweetWordCount = len(testingTweet)
+    return testingTweet[0], testingTweetWordCount
 
+#
 def createRdd(inputData):
     placeCountRdd = countTweetPlace(inputData)
     placeWordsRdd = countTweetWords(inputData)
@@ -42,19 +48,21 @@ def createRdd(inputData):
 
 #----------------SUPPORT FUNCTIONS---------------
 
-# (place, count)
+# Counts number of tweets from all places using countByKey()
+# Returns rdd on the form (place, count)
 def countTweetPlace(inputData):
-    placeRdd = inputData.countByKey().items()
-    return sc.parallelize(placeRdd)
+    placeTweetCountRdd = inputData.countByKey().items()
+    return sc.parallelize(placeTweetCountRdd)
 
-# (place, wordListCount) - (place, [Tcw1, Tcw2,...])
+# Counts number of tweets a given word from input tweet appears in at a given place
+# Returns rdd on the form (place, [Tcw1, Tcw2,..., Tcwn])
 def countTweetWords(inputData):
-    rdd = inputData.aggregateByKey(([0]*inputCount), lambda x,y: countWords(x,y), lambda x,y: ([x[i] + y[i] for i,j in enumerate(x)]))
+    rdd = inputData.aggregateByKey(([0]*testingTweetWordCount), lambda x,y: countWords(x,y), lambda x,y: ([x[i] + y[i] for i,j in enumerate(x)]))
     return rdd
 
 def countWords(x, words):
-    #x = [0]*inputCount
-    for i in range(inputCount):
+    #x = [0]*testingTweetWordCount
+    for i in range(testingTweetWordCount):
         if tweet[i] in words:
             x[i]+=1
     return x
@@ -66,7 +74,7 @@ def calculatePropability(placesData, tweet, place):
     tc = placeInfo[0][1][0]
     tcwMult = reduce(lambda x,y: float(x)*float(y), placeInfo[0][1][1])
     if tc!=0:
-        prob = (float(tc)/float(tweetCount))*(tcwMult/float(tc)**inputCount)
+        prob = (float(tc)/float(trainingRddCount))*(tcwMult/float(tc)**testingTweetWordCount)
         return prob
     else:
         return 0.0
@@ -117,11 +125,16 @@ def writeToFile(maxProbabilities, outputFilename):
     outputFile.close()
 
 
-#------------------RUN--------------------
+#------------------RUN AND INITIALIZATION--------------------
 
-tweet, inputCount = getTweetRdd(args.inputTweet)
-originalRdd, tweetCount = getRdd(args.inputData)
+# Creating rdds for test tweet and training set
+# Counting number of words and elementd in respective rdds
+testingTweet, testingTweetWordCount = getTestingTweet(args.inputTweet)
+trainingRdd, trainingRddCount = getTrainingRdd(args.inputData)
 
-probabilities = findProbabilities(originalRdd, tweet)
+# Calculating all probabilities based on trainingRdd and testingTweet
+#Finds max probability
+#Writes all probabilities to file
+probabilities = findProbabilities(trainingRdd, testingTweet)
 maxProbabilities = findMaxProbability(probabilities)
 writeToFile(maxProbabilities, args.outputFile)
