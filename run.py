@@ -21,7 +21,7 @@ args = parser.parse_args()
 def getRdd(inputFile):
     originalRdd = sc.textFile(inputFile, use_unicode = True)\
     .map(lambda line: line.split('\t'))\
-    .map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 0.01, 5)
+    .map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 0.1, 5)
     tweetCount = originalRdd.count()
     return originalRdd, tweetCount
 
@@ -102,7 +102,6 @@ def writeToFile(maxProbabilities, outputFilename):
     print("Skriver til fil")
     outputFile = open(outputFilename, 'w')
     if maxProbabilities != "":
-        toWrite = ""
         if maxProbabilities.count()>1:
             places = maxProbabilities.map(lambda x: x[0]).collect()
             maxProb = maxProbabilities.map(lambda x: x[1]).collect()[0]
@@ -113,7 +112,6 @@ def writeToFile(maxProbabilities, outputFilename):
             maxProbabilitiesList = maxProbabilities.collect()
             outputFile.write(str(maxProbabilitiesList[0][0]) + "\t")
             outputFile.write(str(maxProbabilitiesList[0][1]))
-        outputFile.write(toWrite)
     else:
         outputFile.write("")
     outputFile.close()
