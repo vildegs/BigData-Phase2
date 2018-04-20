@@ -1,10 +1,13 @@
 from pyspark import SparkContext, SparkConf
 import argparse
 
+#-----------CREATE SPARK CONTEXT---------------
+
 conf = SparkConf()
 sc = SparkContext(conf = conf)
 sc.setLogLevel("OFF")
 
+#-----------PARSER FOR COMMAND LINE-----------
 
 parser = argparse.ArgumentParser(description = "Classification using Naive Bayes.")
 
