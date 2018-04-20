@@ -13,9 +13,31 @@ parser = argparse.ArgumentParser(description = "Classification using Naive Bayes
 
 parser.add_argument('-training', '-t', dest = 'inputData', default = './data/geotweets.tsv')
 parser.add_argument('-input', '-i', dest = 'inputTweet', default = './data/input1.txt')
-parser.add_argument('-output', '-o', dest = 'outputFile', default = './outputFile.tsv')
+parser.add_argument('-output', '-o', dest = 'outputFile', default = './data/output1.tsv')
 
 args = parser.parse_args()
+
+#-------------CREATING INITIAL RDDs-----------
+def getRdd(inputFile):
+    originalRdd = sc.textFile(inputFile, use_unicode = True)\
+    .map(lambda line: line.split('\t'))\
+    .map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 0.01, 5)
+    tweetCount = originalRdd.count()
+    return originalRdd, tweetCount
+
+def getTweetRdd(tweetFile):
+    inputTweet = sc.textFile(tweetFile, use_unicode = True)\
+    .map(lambda x: x.lower().split(" ")).collect()
+    print("Tweet text: ", inputTweet[0])
+    inputCount = len(inputTweet)
+    return inputTweet[0], inputCount
+
+def createRdd(inputData):
+    placeCountRdd = countTweetPlace(inputData)
+    placeWordsRdd = countTweetWords(inputData)
+    placeRdd = placeCountRdd.join(placeWordsRdd)
+    placeRddFiltered = placeRdd.filter(lambda x: reduce(lambda i,j: i*j, x[1][1])!=0)
+    return placeRddFiltered
 
 
 #----------------SUPPORT FUNCTIONS---------------
@@ -33,7 +55,7 @@ def countTweetWords(inputData):
 def countWords(x, words):
     #x = [0]*inputCount
     for i in range(inputCount):
-        if inputTweet[i] in words:
+        if tweet[i] in words:
             x[i]+=1
     return x
 
@@ -56,9 +78,13 @@ def findProbabilities(inputData, tweet):
         return ""
     probabilities = []
     print("Number of places: ", len(placesList))
+    i = 0
     for place in placesList:
+        if i%100 == 0:
+            print("Iteration", i)
         prob = calculatePropability(placesData, tweet, place)
         probabilities.append((place, prob))
+        i+=1
     return probabilities
 
 def findMaxProbability(probabilities):
@@ -67,46 +93,30 @@ def findMaxProbability(probabilities):
     probabilitiesRdd = sc.parallelize(probabilities)
     maxProbability = probabilitiesRdd.max(key=lambda x:x[1])[1]
     maxProbabilities = probabilitiesRdd.filter(lambda x: x[1]==maxProbability)
-    print(maxProbabilities.take(5))
     return maxProbabilities
 
 
 #---------------WRITING TO FILE-----------------
 
 def writeToFile(maxProbabilities, outputFilename):
+    print("Skriver til fil")
     outputFile = open(outputFilename, 'w')
     if maxProbabilities != "":
+        toWrite = ""
         if maxProbabilities.count()>1:
-            toWrite = maxProbabilities
+            places = maxProbabilities.map(lambda x: x[0]).collect()
+            maxProb = maxProbabilities.map(lambda x: x[1]).collect()[0]
+            for place in places:
+                outputFile.write(place + "\t")
+            outputFile.write(str(maxProb))
         else:
-            toWrite = maxProbabilities.map(lambda x: str(x[0]) + "\t" + str(x[1]))
+            maxProbabilitiesList = maxProbabilities.collect()
+            outputFile.write(str(maxProbabilitiesList[0][0]) + "\t")
+            outputFile.write(str(maxProbabilitiesList[0][1]))
         outputFile.write(toWrite)
     else:
         outputFile.write("")
     outputFile.close()
-
-
-#-------------CREATING INITIAL RDDs-----------
-def getRdd(inputFile):
-    originalRdd = sc.textFile(inputFile, use_unicode = True)\
-    .map(lambda line: line.split('\t'))\
-    .map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 0.1, 5)
-    tweetCount = originalRdd.count()
-    return originalRdd, tweetCount
-
-def getTweetRdd(tweetFile):
-    inputTweet = sc.textFile(tweetFile, use_unicode = True)\
-    .map(lambda x: x.lower().split(" ")).collect()
-    print("Tweet: ", inputTweet)
-    inputCount = len(inputTweet)
-    return inputTweet, inputCount
-
-def createRdd(inputData):
-    placeCountRdd = countTweetPlace(inputData)
-    placeWordsRdd = countTweetWords(inputData)
-    placeRdd = placeCountRdd.join(placeWordsRdd)
-    placeRddFiltered = placeRdd.filter(lambda x: reduce(lambda i,j: i*j, x[1][1])!=0)
-    return placeRddFiltered
 
 
 #------------------RUN--------------------
@@ -114,5 +124,6 @@ def createRdd(inputData):
 tweet, inputCount = getTweetRdd(args.inputTweet)
 originalRdd, tweetCount = getRdd(args.inputData)
 
-maxProbabilities = findMaxProbability(findProbabilities(originalRdd, args.inputTweet))
-#writeToFile(maxProbabilities, args.outputFile)
+probabilities = findProbabilities(originalRdd, tweet)
+maxProbabilities = findMaxProbability(probabilities)
+writeToFile(maxProbabilities, args.outputFile)
