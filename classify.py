@@ -12,19 +12,27 @@ parser.add_argument('-input', '-i', dest = 'inputTweet')
 parser.add_argument('-output', '-o', dest = 'outputFile', default = './outputFile.tsv')
 
 args = parser.parse_args()
-originalRdd = sc.textFile(args.training, use_unicode = True)\
+#originalRdd = sc.textFile(args.training, use_unicode = True)\
         .map(lambda line: line.split('\t')).map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 0.1, 5)
 
-rddCount = originalRdd.count()
+#rddCount = originalRdd.count()
 places = originalRdd.map(lambda x: x[0]).distinct().collect()
 placeCount = originalRdd.map(lambda x: (x[0], 1)).reduceByKey(lambda x,y: x+y)
+
+orgData = [("New York, NY", "empire state building"),
+           ("New York, NY", "big empire state"),
+           ("New York, NY", "new york state"),
+           ("London, UK", "big ben"),
+           ("London, UK", "big state building")]
+originalRdd = sc.parallellize(orgData)
+rddCount = originalRdd.count()
 
 
 def transformInputTweet():
     print("Transforming input tweet")
     # tweet = tweetText.lower().split(" ")
     # tweetTrans = sc.textFile(args.inputTweet, use_unicode = True)
-    tweet = ["I"]
+    tweet = ["state"]
     tweetRdd = sc.parallelize(tweet)
     return tweetRdd
 
