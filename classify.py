@@ -24,7 +24,7 @@ args = parser.parse_args()
 def getTrainingRdd(inputTestingFile):
     trainingRdd = sc.textFile(inputTestingFile, use_unicode = True)\
                         .map(lambda line: line.split('\t'))\
-                        .map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 0.1, 5)
+                        .map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 0.01, 5)
     trainingRddCount = trainingRdd.count()
     return trainingRdd, trainingRddCount
 
@@ -40,8 +40,8 @@ def getTestingTweet(testingTweetFile):
 # Joins two rdds - one with word counts and one with tweet count per place.
 # Filters out all places where at least one of the words in the input tweet doesn't occur.
 def createRdd(trainingData):
-    placeCountRdd = countTweetPlace(trainingData)
-    placeWordsRdd = countTweetWords(trainingData)
+    placeCountRdd = countTweetPlace(trainingData) # (place, Tc)
+    placeWordsRdd = countTweetWords(trainingData) # (place, [tcw1, tcw2,...])
     placeRdd = placeCountRdd.join(placeWordsRdd)
     placeRddFiltered = placeRdd.filter(lambda x: reduce(lambda i,j: i*j, x[1][1])!=0)
     return placeRddFiltered
@@ -58,7 +58,7 @@ def countTweetPlace(trainingData):
 # Counts number of tweets a given word from input tweet appears in at a given place.
 # Returns rdd on the form (place, [Tcw1, Tcw2,..., Tcwn]).
 def countTweetWords(trainingData):
-    rdd = trainingData.aggregateByKey(([0]*testingTweetWordCount), lambda x,y: countWords(x,y), lambda x,y: ([x[i] + y[i] for i,j in enumerate(x)]))
+    rdd = trainingData.aggregateByKey(([0]*testingTweetWordCount), lambda x,y: countWords(x,y), lambda x,y: ([x[i] + y[i] for i in range(len(x))]))
     return rdd
 
 # Counts number of times a word from input tweet occurs in a given tweet.
@@ -73,7 +73,7 @@ def countWords(countList, words):
 
 # Calculates probability for a given place based on input tweet.
 # Multiplies all tcw and returns probability.
-def calculatePropability(placesDataRdd, tweet, place):
+def calculatePropability(placesDataRdd, place):
     placeInfo = placesDataRdd.filter(lambda x: x[0] == place).collect()
     tc = placeInfo[0][1][0]
     tcwMult = reduce(lambda x,y: float(x)*float(y), placeInfo[0][1][1])
@@ -96,7 +96,7 @@ def findProbabilities(trainingData, testingTweet):
     for place in placesList:
         if i%100 == 0:
             print("Iteration", i)
-        placeProbability = calculatePropability(placesDataRdd, testingTweet, place)
+        placeProbability = calculatePropability(placesDataRdd, place)
         probabilities.append((place, placeProbability))
         i+=1
     return probabilities
