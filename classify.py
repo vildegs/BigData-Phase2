@@ -24,7 +24,7 @@ args = parser.parse_args()
 def getTrainingRdd(inputTestingFile):
     trainingRdd = sc.textFile(inputTestingFile, use_unicode = True)\
                         .map(lambda line: line.split('\t'))\
-                        .map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 0.01, 5)
+                        .map(lambda x: (x[4], x[10].lower().split(" "))).sample(False, 1, 5)
     trainingRddCount = trainingRdd.count()
     return trainingRdd, trainingRddCount
 
